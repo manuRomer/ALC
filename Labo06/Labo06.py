@@ -39,7 +39,7 @@ def diagRH(A,tol=1e-15,K=1000):
         B = multi_matricial(H_v1, multi_matricial(A, traspuesta(H_v1)))
         A_prima = B[1:,1:]
         S_prima, D_prima = diagRH(A_prima, tol, K)
-        D = np.eye(n)
+        D = np.zeros((n, n))
         D[0][0] = lambda1
         D[1:,1:] = D_prima
         S = np.eye(n)

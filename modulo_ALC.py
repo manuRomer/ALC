@@ -334,6 +334,8 @@ def producto_interno(v, w):
         res += v[i]*w[i]
     return res
 
+## Laboratorio 5
+
 def QR_con_GS(A, tol=1e-12, retorna_nops=False):
     """
     A una matriz de nxn
