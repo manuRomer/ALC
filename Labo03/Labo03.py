@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 
 def pointsCirc():
     centro = np.array([0, 0])

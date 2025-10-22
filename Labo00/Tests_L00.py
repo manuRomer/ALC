@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from L00 import esCuadrada  
+from Labo00.Labo00 import esCuadrada  
 
 class TestEsCuadrada(unittest.TestCase):
     
