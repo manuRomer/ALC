@@ -29,9 +29,18 @@ def diagRH(A,tol=1e-15,K=1000):
     v1, lambda1, k = metpot2k(A, tol, K)
     e1 = np.zeros(v1.shape[0])
     e1[0] = 1
-    w = e1 - v1
-    H_v1 = np.eye(n) - 2 * (multi_matricial(traspuesta(w), w) / (norma(w, 2) ** 2))
-    if (n == 2):
+
+    sign = 1.0 if v1[0] >= 0 else -1.0
+    w = v1 + sign * norma(v1, 2) * e1
+
+    nw = norma(w, 2)
+    if (nw < tol):
+        H_v1 = np.eye(n)
+    else:
+        w = w / nw
+        H_v1 = np.eye(n) - 2.0 * multi_matricial(traspuesta(w), w)
+
+    if (n == 1):
         S = H_v1
         D = multi_matricial(H_v1, multi_matricial(A, traspuesta(H_v1)))
         return S, D

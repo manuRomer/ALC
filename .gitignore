@@ -1,0 +1,34 @@
+# Archivos compilados de Python
+*.pyc
+*.pyo
+*.pyd
+
+# Carpetas __pycache__ en cualquier lugar
+__pycache__/
+**/__pycache__/
+
+# Entornos virtuales
+venv/
+.env/
+.envs/
+.venv/
+
+# Archivos de configuración de PyCharm
+.idea/
+
+# Archivos de Visual Studio Code
+.vscode/
+
+# Archivos de log
+*.log
+
+# Archivos temporales de sistema
+*.swp
+*~
+.DS_Store
+
+# Archivos de distribución / packaging
+build/
+dist/
+*.egg-info/
+.eggs/

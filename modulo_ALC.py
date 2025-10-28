@@ -120,7 +120,7 @@ def multi_matricial(A, B):
     if A.ndim == 1:
         A = A.reshape(1, -1)
 
-    # Si B es vector 1D → tratarlo como fila (n x 1)
+    # Si B es vector 1D → tratarlo como col (n x 1)
     if B.ndim == 1:
         B = B.reshape(1, -1)
 
@@ -140,7 +140,7 @@ def multi_matricial(A, B):
     # Si el resultado es un vector columna o fila → devolver como 1D
     
     if (C.ndim == 2 and C.shape[0] == 1 and C.shape[1] == 1):
-        return C[0][0]
+        return C[0]
     if C.shape[1] == 1:
         return C.flatten()
 
@@ -428,3 +428,76 @@ def calculaQR(A, metodo='RH', tol=1e-12):
         return QR_con_GS(A, tol)
     else:
         return QR_con_HH(A, tol)
+
+## Laboratorio 6
+
+def f_A(A, v, k):
+    w = v
+    for i in range (k):
+        w = multi_matricial(A, traspuesta(w))
+        norma_2 = norma(w, 2)
+        if (norma_2 <= 0): return np.zeros(v.shape[0]) 
+        w = w/norma_2
+    return w
+
+def metpot2k(A, tol=1e-15, K=1000):
+    """
+    A una matriz de n x n
+    tol la tolerancia en la diferencia entre un paso y el siguiente de la estimacion del
+    autovector.
+    K el numero maximo de iteraciones a realizarse.
+    Return vector v, autovalor lambda y numero de iteracion realizadas k
+    """
+    v = np.random.rand(A.shape[0])
+    v_prima = f_A(A, v, 2)
+    e = multi_matricial(v_prima, traspuesta(v))
+    k = 0
+    while (abs(e-1)>tol and k < K):
+        v = v_prima
+        v_prima = f_A(A, v, 1)
+        e = multi_matricial(v_prima, traspuesta(v))
+        k += 1
+    autovalor = multi_matricial(v_prima, multi_matricial(A, traspuesta(v_prima)))
+    e -= 1
+    return v, autovalor, k
+
+def diagRH(A,tol=1e-15,K=1000):
+    """
+    A una matriz simetrica de n x n
+    tol la tolerancia en la diferencia entre un paso y el siguiente de la estimacion del
+    autovector. K el numero maximo de iteraciones a realizarse
+    return a matriz de autovectores S y matriz de autovalores D, tal que A = S D S.T
+    Si la matriz A no es simetrica, debe retornar None
+    """
+    n = A.shape[0]
+    v1, lambda1, k = metpot2k(A, tol, K)
+    e1 = np.zeros(v1.shape[0])
+    e1[0] = 1
+
+    sign = 1.0 if v1[0] >= 0 else -1.0
+    w = v1 + sign * norma(v1, 2) * e1
+
+    nw = norma(w, 2)
+    if (nw < tol):
+        H_v1 = np.eye(n)
+    else:
+        w = w / nw
+        H_v1 = np.eye(n) - 2.0 * multi_matricial(traspuesta(w), w)
+
+    if (n == 1):
+        S = H_v1
+        D = multi_matricial(H_v1, multi_matricial(A, traspuesta(H_v1)))
+        return S, D
+    
+    else:
+        B = multi_matricial(H_v1, multi_matricial(A, traspuesta(H_v1)))
+        A_prima = B[1:,1:]
+        S_prima, D_prima = diagRH(A_prima, tol, K)
+        D = np.zeros((n, n))
+        D[0][0] = lambda1
+        D[1:,1:] = D_prima
+        S = np.eye(n)
+        S[1:,1:] = S_prima
+        S = multi_matricial(H_v1, S)
+        return S, D
+
