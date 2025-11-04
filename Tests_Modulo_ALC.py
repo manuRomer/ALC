@@ -313,6 +313,8 @@ check_QR(Q4c,R4c,A4)
 
 print('Pasó labo 5')
 
+## Tests labo 6
+
 # Tests metpot2k
 
 S = np.vstack([
