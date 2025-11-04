@@ -105,7 +105,10 @@ def normaliza(X, p):
     for i in range(len(Y)):
         vector = Y[i]
         n = norma(vector, p)
-        Y[i] = (vector / n)
+        if (n == 0):
+            Y[i] = np.zeros_like(vector)
+        else:
+            Y[i] = (vector / n)
     return Y
 
 def multi_matricial(A, B):
@@ -501,3 +504,121 @@ def diagRH(A,tol=1e-15,K=1000):
         S = multi_matricial(H_v1, S)
         return S, D
 
+## Laboratorio 7
+
+def matriz_al_azar_valores_entre_0_y_1(n):
+    A = np.zeros((n, n))
+    for i in range (n):
+        for j in range(n):
+            A[i][j] = np.random.uniform(0, 1)
+    return A
+
+def normalizar_columnas(A, p):
+    A = traspuesta(A)
+    A = normaliza(A, p)
+    return traspuesta(A)
+
+def transiciones_al_azar_continuas(n):
+    """
+    n la cantidad de filas (columnas) de la matriz de transición.
+    Retorna matriz T de n x n normalizada por columnas, y con entradas al azar en el intervalo [0,1]
+    """
+    if (n == 1):
+        return np.eye(n)
+    A = matriz_al_azar_valores_entre_0_y_1(n)
+    return normalizar_columnas(A, 1)
+    
+
+def transiciones_al_azar_uniformes(n,thres):
+    """
+    n la cantidad de filas (columnas) de la matriz de transición.
+    thres probabilidad de que una entrada sea distinta de cero.
+    Retorna matriz T de n x n normalizada por columnas. 
+    El elemento i,j es distinto de cero si el número generado al azar para i,j es menor o igual a thres. 
+    Todos los elementos de la columna $j$ son iguales 
+    (a 1 sobre el número de elementos distintos de cero en la columna).
+    """
+    A = matriz_al_azar_valores_entre_0_y_1(n)
+    for i in range(n):
+        for j in range(n):
+            if (A[i][j] <= thres):
+                A[i][j] = 1
+            else:
+                A[i][j] = 0
+    for i in range(n):
+        if (norma(A[:, i], 1) == 0):
+            A[np.random.randint(n)][i] = 1
+    return normalizar_columnas(A, 1)
+    
+    
+
+def nucleo(A,tol=1e-15):
+    """
+    A una matriz de m x n
+    tol la tolerancia para asumir que un vector esta en el nucleo.
+    Calcula el nucleo de la matriz A diagonalizando la matriz traspuesta(A) * A (* la multiplicacion matricial), usando el medodo diagRH. El nucleo corresponde a los autovectores de autovalor con modulo <= tol.
+    Retorna los autovectores en cuestion, como una matriz de n x k, con k el numero de autovectores en el nucleo.
+    """
+    A_prima = multi_matricial(traspuesta(A), A)
+    S, D = diagRH(A_prima, tol, K=1e5)
+    autovalores = np.diag(D)
+    
+    indices_nucleo = []
+    for i in range(len(autovalores)):
+        if np.abs(autovalores[i]) <= tol:
+            indices_nucleo.append(i)
+    if (indices_nucleo == []):
+        return np.array([])
+    base_nucleo = S[:, indices_nucleo]
+    return base_nucleo
+
+def crea_rala(listado,m_filas,n_columnas,tol=1e-15):
+    """
+    Recibe una lista listado, con tres elementos: lista con indices i, lista con indices j, y lista con valores A_ij de la matriz A. Tambien las dimensiones de la matriz a traves de m_filas y n_columnas. Los elementos menores a tol se descartan.
+    Idealmente, el listado debe incluir unicamente posiciones correspondientes a valores distintos de cero. Retorna una lista con:
+    - Diccionario {(i,j):A_ij} que representa los elementos no nulos de la matriz A. Los elementos con modulo menor a tol deben descartarse por default. 
+    - Tupla (m_filas,n_columnas) que permita conocer las dimensiones de la matriz.
+    """
+    import numpy as np # Necesario para np.abs()
+
+def crea_rala(listado, m_filas, n_columnas, tol=1e-15):
+    """
+    Recibe una lista listado, con tres elementos: lista con indices i, 
+    lista con indices j, y lista con valores A_ij de la matriz A. 
+    ...
+    """
+    dimensiones = (m_filas, n_columnas)
+
+    if (listado == []):
+        return {}, dimensiones
+    
+    indices_i = listado[0]
+    indices_j = listado[1]
+    valores_A_ij = listado[2]
+    rala = {}
+    num_elementos = len(indices_i)
+    
+    for k in range(num_elementos):
+        
+        valor = valores_A_ij[k]
+        if np.abs(valor) >= tol:
+            i = indices_i[k]
+            j = indices_j[k]
+            rala[(i, j)] = valor
+            
+    return rala, dimensiones
+
+def multiplica_rala_vector(A,v):
+    """
+    Recibe una matriz rala creada con crea_rala y un vector v. 
+    Retorna un vector w resultado de multiplicar A con v
+    """
+    rala = A[0]
+    m_filas, n_columnas = A[1]
+    
+    w = np.zeros(m_filas)
+    
+    for (i, j), valor_A_ij in rala.items():
+        w[i] += valor_A_ij * v[j]
+        
+    return w
