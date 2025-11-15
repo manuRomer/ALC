@@ -112,7 +112,7 @@ contador_test = 1
 for m in [2,5,10,20]:
     for n in [2,5,10,20]:
         for _ in range(10):
-            print("Se ejecuta la iteracion ", contador_test)
+            # print("Se ejecuta la iteracion ", contador_test)
             contador_test = contador_test + 1
             A = genera_matriz_para_test(m,n)
             test_svd_reducida_mn(A)
@@ -123,7 +123,7 @@ contador_test = 1
 m = 12
 for tam_nucleo in [2,4,6]:
     for _ in range(10):
-        print("Matrices con nucleo: Se ejecuta la iteracion ", contador_test)
+        # print("Matrices con nucleo: Se ejecuta la iteracion ", contador_test)
         contador_test = contador_test + 1
         A = genera_matriz_para_test(m,tam_nucleo=tam_nucleo)
         test_svd_reducida_mn(A)
@@ -132,7 +132,7 @@ for tam_nucleo in [2,4,6]:
 contador_test = 1
 A = np.random.random((8,6))
 for k in [1,3,5]:
-    print("Tamaños de las matrices: Se ejecuta iteracion: ", contador_test)
+    # print("Tamaños de las matrices: Se ejecuta iteracion: ", contador_test)
     contador_test = contador_test + 1
     hU,hS,hV = svd_reducida(A,k=k)
     assert hU.shape[0] == A.shape[0], 'Dimensiones de hU incorrectas (caso a)'
