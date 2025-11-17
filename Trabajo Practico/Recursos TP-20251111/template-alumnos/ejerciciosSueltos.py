@@ -25,11 +25,11 @@ def cargarDataset(carpeta):
     Xvc = np.load(val_cats)     # gatos val
     Xvd = np.load(val_dogs)     # perros val
 
-    Xt = traspuesta(np.concatenate([Xtc, Xtd], axis=1))
-    Xv = traspuesta(np.concatenate([Xvc, Xvd], axis=1))
+    Xt = np.concatenate((Xtc, Xtd), axis=1)
+    Xv = np.concatenate((Xvc, Xvd), axis=1)
 
-    Nc_train = Xtc.shape[0]   
-    Nd_train = Xtd.shape[0]  
+    Nc_train = Xtc.shape[1]   
+    Nd_train = Xtd.shape[1]  
 
     Yt_cats = np.zeros((2, Nc_train))
     Yt_dogs = np.zeros((2, Nd_train))
@@ -42,10 +42,10 @@ def cargarDataset(carpeta):
         Yt_dogs[0, i] = 0
         Yt_dogs[1, i] = 1
 
-    Yt = np.concatenate([Yt_cats, Yt_dogs], axis=0)
+    Yt = np.concatenate((Yt_cats, Yt_dogs), axis=1)
 
-    Nc_val = Xvc.shape[0]  
-    Nd_val = Xvd.shape[0]  
+    Nc_val = Xvc.shape[1]  
+    Nd_val = Xvd.shape[1]  
     
     Yv_cats = np.zeros((2, Nc_val))
     Yv_dogs = np.zeros((2, Nd_val))
@@ -58,7 +58,7 @@ def cargarDataset(carpeta):
         Yv_dogs[0, i] = 0
         Yv_dogs[1, i] = 1
 
-    Yv = np.concatenate([Yv_cats, Yv_dogs], axis=0)
+    Yv = np.concatenate((Yv_cats, Yv_dogs), axis=1)
 
     return Xt, Yt, Xv, Yv
 
@@ -128,10 +128,12 @@ def pinvSVD(U, S, V, Y):
 
 # Ejercicio 4
 def pinvHouseHolder(Q,R,Y):
-    return calcularWconQR(Q, R, Y)
+    W = calcularWconQR(Q, R, Y)
+    return W
 
 def pinvGramSchmidt(Q,R,Y):
-    return calcularWconQR(Q, R, Y)
+    W = calcularWconQR(Q, R, Y)
+    return W
 
 # Ejercicio 5
 def esPseudoInversa(X, pX, tol = 1e-8):
@@ -156,8 +158,8 @@ def esPseudoInversa(X, pX, tol = 1e-8):
 def evaluacion():
     Xt, Yt, Xv, Yv = cargarDataset(carpetaGatosYPerros)
 
-    # En el contexto del TP n > p, entonces para el algoritmo 1 aplicamos Cholesky sobre X^T @ X
-    L = cholesky(traspuesta(Xt) @ Xt)
+    # En el contexto del TP n < p, entonces para el algoritmo 1 aplicamos Cholesky sobre X @ X^T
+    L = cholesky(Xt @ traspuesta(Xt))
     WEN = pinvEcuacionesNormales(Xt, L , Yt)
     print('Termino WEN')
 
@@ -166,14 +168,13 @@ def evaluacion():
     WSVD = pinvSVD(U, S, V, Yt)
     print('Termino WSVD')
 
-    QHH, RHH = QR_con_HH(Xt)
-    WQRHH =(QHH, RHH, Yt)
+    QHH, RHH = QR_con_HH(traspuesta(Xt))
+    WQRHH = pinvHouseHolder(QHH, RHH, Yt)
     print('Termino WQRHH')
     
-    QGS, RGS = QR_con_GS(Xt)
-    WQRGS =(QGS, RGS, Yt)
+    QGS, RGS = QR_con_GS(traspuesta(Xt))
+    WQRGS = pinvGramSchmidt(QGS, RGS, Yt)
     print('Termino WQRGS')
-    
     
 
 evaluacion()

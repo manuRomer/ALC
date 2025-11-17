@@ -368,27 +368,6 @@ def QR_con_GS(A, tol=1e-12, retorna_nops=False):
     R[0][0] = r_11
 
     for j in range(1, n):
-        q_j_prima = A[:, j]
-
-        for k in range (0, j):
-            q_k = Q[:, k]
-            r_kj = producto_interno(q_k, q_j_prima)
-            nops += q_k.shape[0]**2   # operaciones de la mulriplicacion matricial
-            
-            q_j_prima = q_j_prima - r_kj * q_k
-            nops += 2 
-
-            R[k][j] = r_kj
-        
-        r_jj = norma(q_j_prima, 2)
-        nops += q_j_prima.shape[0]*2 -1     # operaciones de la norma
-        
-        q_j = q_j_prima / r_jj
-        nops += 1 
-        Q[:, j] = q_j
-        R[j][j] = r_jj
-
-    for j in range(1, n):
         q_j_prima = A[:, j].copy() 
         
         R_col_j = Q[:, :j].T @ q_j_prima 
@@ -403,10 +382,17 @@ def QR_con_GS(A, tol=1e-12, retorna_nops=False):
         Q[:, j] = q_j
         R[j, j] = r_jj
     
-
+        # 3. ⭐️ RECORTAR PARA DEVOLVER LA FORMA ECONÓMICA
+    # R: Recortar de m x n a n x n (solo las primeras n filas)
+    R_economica = R[:n, :] 
+    
+    # Q: Recortar de m x m a m x n (solo las primeras n columnas)
+    Q_economica = Q[:, :n]
     if (retorna_nops):
-        return Q, R, nops
-    return Q, R
+        return Q_economica, R_economica, nops
+
+    
+    return Q_economica, R_economica
 
 def QR_con_HH(A, tol=1e-12, retorna_nops=False):
     """
@@ -442,8 +428,15 @@ def QR_con_HH(A, tol=1e-12, retorna_nops=False):
             Qu = Qu.reshape(-1, 1)   
             u = u.reshape(1, -1)
             Q[:, k:] -= 2.0 * (Qu @ u)
+
+    # 3. ⭐️ RECORTAR PARA DEVOLVER LA FORMA ECONÓMICA
+    # R: Recortar de m x n a n x n (solo las primeras n filas)
+    R_economica = R[:n, :] 
     
-    return Q, R
+    # Q: Recortar de m x m a m x n (solo las primeras n columnas)
+    Q_economica = Q[:, :n]
+    
+    return Q_economica, R_economica
 
 def calculaQR(A, metodo='RH', tol=1e-12):
     """
@@ -732,7 +725,6 @@ def cholesky(A):
     L = np.zeros((n, n))
 
     atol=1e-8
-    suma_diag = sum(L[j][k]**2 for k in range(j))
     
     for j in range(n):
         vector_L_j = L[j, :j] 
@@ -774,22 +766,40 @@ def deVectorAMatrizInversa(VecEpsilon):
     
     return matrizEpsilon
 
-def calcularWconQR(Q, R, Y):
-    # Tengo que resolver V @ R^T = X (Con V = pseudo-inversa de X)
-    # Para usar res_tri tengo que resolver a derecha asi que aplico traspuesta a ambos lados y resuelvo R @ V^T = Q^T
-    n = R.shape[0]
-    p = Q.shape[0]
-    Q_t = traspuesta(Q)
-    V_t = np.zeros((n, p))
+# def calcularWconQR(Q, R, Y):
+#     # Tengo que resolver V @ R^T = X (Con V = pseudo-inversa de X)
+#     # Para usar res_tri tengo que resolver a derecha asi que aplico traspuesta a ambos lados y resuelvo R @ V^T = Q^T
+#     n = R.shape[0]
+#     p = Q.shape[0]
+#     Q_t = traspuesta(Q)
+#     V_t = np.zeros((n, p))
 
-    # Calculo V^T
-    for i in range(p):
-        V_t[:, i] = solve_triangular(R, Q_t[:, i], False)
+#     # Calculo V^T
+#     for i in range(p):
+#         V_t[:, i] = solve_triangular(R, Q_t[:, i], False)
     
-    # Obtengo W
-    W = Y @ traspuesta(V_t)
-    return W
+#     # Obtengo W
+#     W = Y @ traspuesta(V_t)
+#     return W
 
+def calcularWconQR(Q, R, Y):
+    """
+    Calcula W = Y @ X+ usando la factorización QR de X.T.
+    Asume: X es n x p (n < p), Y es m x p.
+           QR de X.T = Q(p x n) R(n x n).
+    """
+    n = R.shape[0]  
+    p = Q.shape[0]  
+    Q_t = traspuesta(Q)
+    
+    V_t = np.zeros((n, p))
+    for i in range(p):
+        Q_t_col = Q_t[:, i]
+        V_t[:, i] = solve_triangular(R, Q_t_col, lower=False)
+    V = traspuesta(V_t) 
+    
+    W = Y @ V
+    return W
 
 
 
