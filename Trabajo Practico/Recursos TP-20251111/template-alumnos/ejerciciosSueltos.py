@@ -1,22 +1,23 @@
-from modulo_ALC import *
+from alc import *
 import numpy as np
-import math
-from Labo08 import svd_reducida
 import os
 
-
+carpetaGatosYPerros = '/home/manu/Escritorio/Talleres ALC/Trabajo Practico/Recursos TP-20251111/template-alumnos/template-alumnos/dataset/cats_and_dogs'
 # Ejercicio 1
 #aca meti un poco de ChatGPT porque no sabia muy bien como cargar los datos
 #como no podemos testearlo, no se que onda esta implementacion
 def cargarDataset(carpeta):
     #root = "template-alumnos/template-alumnos/dataset/cats_and_dogs"
     #Xt, Yt, Xv, Yv = cargarDataset(root)
-    
+
+    # Armo la ruta completa a la carpeta de cats_and_dogs
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    carpetaGatosYPerros = os.path.join(base_dir, carpeta)
     # carpetas
-    train_cats = os.path.join(carpeta, "train", "cats", "efficientnet_b3_embeddings.npy")
-    train_dogs = os.path.join(carpeta, "train", "dogs", "efficientnet_b3_embeddings.npy")
-    val_cats   = os.path.join(carpeta, "val", "cats", "efficientnet_b3_embeddings.npy")
-    val_dogs   = os.path.join(carpeta, "val", "dogs", "efficientnet_b3_embeddings.npy")
+    train_cats = os.path.join(carpetaGatosYPerros, "train", "cats", "efficientnet_b3_embeddings.npy")
+    train_dogs = os.path.join(carpetaGatosYPerros, "train", "dogs", "efficientnet_b3_embeddings.npy")
+    val_cats   = os.path.join(carpetaGatosYPerros, "val", "cats", "efficientnet_b3_embeddings.npy")
+    val_dogs   = os.path.join(carpetaGatosYPerros, "val", "dogs", "efficientnet_b3_embeddings.npy")
 
     Xtc = np.load(train_cats)   # gatos train
     Xtd = np.load(train_dogs)   # perros train
@@ -60,74 +61,81 @@ def cargarDataset(carpeta):
 
     return Xt, Yt, Xv, Yv
 
-# Ejercicio 2 (falta acomodar)
+# Ejercicio 2 
 def pinvEcuacionesNormales(X,L,Y):
-    n = X.shape[0]
-    p = X.shape[1]
+    n, p = X.shape
+    X_t = traspuesta(X)
+    L_t = traspuesta(L)
     if n > p:
-        X_t = traspuesta(X)
-        X_t_X = multi_matricial(X_t, X)
-        L_t = traspuesta(L)
-        Z = np.zeros((X.shape[1], X.shape[1]))
-        for i in range(X.shape[1]):
-            Z[i] = sustitucionParaAdelante(L, X_t[i])
+        # Asumo que L = cholesky(X^T @ X)
+        # Quiero resolver L @ L^T @ U = X^T 
+        Z = np.zeros((p, n))
+        U = np.zeros((p, n))
+        
+        # Paso intermedio. Sustitucion hacia adelante: L @ Z = X^T
+        for i in range(n):
+            Z[:, i] = res_tri(L, X_t[:, i], True)
             
-        U = np.zeros((X.shape[1], X.shape[1]))
-        for i in range(X.shape[1]):
-            U[i] = sustitucionParaAtras(L_t, Z[i])
+        # Resuelvo el sistema. Sustitución hacia atrás: L^T @ U = Z
+        for i in range(n):
+            U[:, i] = res_tri(L_t, Z[:, i], False)
+
+        # Calculo W
         W = multi_matricial(Y, U)
     
     elif n < p:
-        X_t = traspuesta(X)
-        X_t_X = multi_matricial(X_t, X)
-        L_t = traspuesta(L)
-        Z = np.zeros((X.shape[1], X.shape[1]))
-        for i in range(X.shape[1]):
-            Z[i] = sustitucionParaAdelante(L, X_t[i])
+        # Asumo que L = cholesky(X @ X^T)
+        # Quiero resolver V @ X @ X^T = X^T
+        # Para usar res_tri tengo que resolver a derecha asi que aplico traspuesta a ambos lados y resuelvo L @ L^T @ V^T = X
+        
+        Z = np.zeros((n, p))
+        Vt = np.zeros((n, p))
+
+        # Paso intermedio. Sustitucion hacia adelante: L @ Z = X
+        for i in range(p):
+            Z[:, i] = res_tri(L, X[:, i], True)
             
-        Vt = np.zeros((X.shape[1], X.shape[1]))
-        for i in range(X.shape[1]):
-            Vt[i] = sustitucionParaAtras(L_t, Z[i])
+        # Resuelvo el sistema. Sustitución hacia atrás: L^T @ V^T = Z
+        for i in range(p):
+            Vt[:, i] = res_tri(L_t, Z[:, i], False)
         
-        Vt = traspuesta(Vt)
+        V = traspuesta(Vt)
         
-        W = multi_matricial(Y, Vt)
+        W = multi_matricial(Y, V)
         
     else:
-        return multi_matricial(Y, inversa(X))
+        # Como la pseudoinversa X^+ = X^-1 entonces W = Y @ X^-1
+        W = multi_matricial(Y, inversa(X))
             
     return W
 
 # Ejercicio 3
 def pinvSVD(U, S, V, Y):
-    N = S.shape[0]
-    
-    V1 = V[:,:N]
-    U1 = U[:,:N]
-    pseudoInversa = multi_matricial(multi_matricial(V1, S), traspuesta(U1))
+    n = S.shape[0]
+
+    # Calculamos Sigma_1^-1
+    S_1 = inversaDeMatrizDiagonal(S[:, :n])
+
+    # Calculamos la pseudo-inversa de X
+    V_1 = V[:,:n]
+    U_1 = U[:,:n]
+    pseudoInversa = multi_matricial(multi_matricial(V_1, S_1), traspuesta(U_1))
     
     W = multi_matricial(Y, pseudoInversa)
+
     return W
 
 # Ejercicio 4
 def pinvHouseHolder(Q,R,Y):
-    Vt = np.zeros((R.shape[1], R.shape[1]))
-    for i in range(R.shape[1]):
-        Vt[i] = sustitucionParaAdelante(R, Q[i])
-
-    return multi_matricial(Y, traspuesta(Vt))
+    return calcularWconQR(Q, R, Y)
 
 def pinvGramSchmidt(Q,R,Y):
-    Vt = np.zeros((R.shape[1], R.shape[1]))
-    for i in range(R.shape[1]):
-        Vt[i] = sustitucionParaAdelante(R, Q[i])
-
-    return multi_matricial(Y, traspuesta(Vt))
+    return calcularWconQR(Q, R, Y)
 
 # Ejercicio 5
 def esPseudoInversa(X, pX, tol = 1e-8):
     #La pseudo inversa es la unica matriz que cumple los 4 puntos mencionados en el tp (al final de la pagina 3)
-    # 1) X pX X = X
+    # 1) X @ pX @ X = X
     if not matricesIguales(multi_matricial(X, multi_matricial(pX, X)), X, tol):
         return False
     # 2) pX X pX = pX
@@ -143,22 +151,27 @@ def esPseudoInversa(X, pX, tol = 1e-8):
         return False
     return True
 
-# Ejercicio 6 (falta hacer la matriz de confusion, es la matriz de 2x2 que te dice que tanto le erraste)
-# para cada W, hay que hacer WXv y ver si dio el resultado esperado.
+# Ejercicio 6 
 def evaluacion():
-    Xt, Yt, Xv, Yv = cargarDataset()#template-alumnos/template-alumnos/dataset/cats_and_dogs)
-    LCholesky = cholesky(Xt)
-    WCholesky = pinvEcuacionesNormales(Xt, LCholesky, Yt)
+    Xt, Yt, Xv, Yv = cargarDataset(carpetaGatosYPerros)
+
+    # En el contexto del TP, n < p entonces para el algoritmo 1 aplicamos Cholesky sobre X @ X^T
+    L = cholesky(multi_matricial(Xt, traspuesta(Xt)))
+    WEN = pinvEcuacionesNormales(Xt, L , Yt)
+    print('Termino WEN')
     
-    U, Epsilon, V = svd_reducida(Xt)
-    WSVD = pinvSVD(U, Epsilon, V, Yt)
+    U, S, V = svd_reducida(Xt)
+    WSVD = pinvSVD(U, S, V, Yt)
+    print('Termino WSVD')
 
-    Qhh, Rhh = QR_con_HH(Xt)
-    WQRHH =(Qhh, Rhh, Yt)
+    QHH, RHH = QR_con_HH(Xt)
+    WQRHH =(QHH, RHH, Yt)
+    print('Termino WQRHH')
     
-    Qgs, Rgs = QR_con_GS(Xt)
-    WQRGS = pinvGramSchmidt(Qgs, Rgs, Yt) 
-
-
-
+    QGS, RGS = QR_con_GS(Xt)
+    WQRGS =(QGS, RGS, Yt)
+    print('Termino WQRGS')
     
+    
+
+evaluacion()

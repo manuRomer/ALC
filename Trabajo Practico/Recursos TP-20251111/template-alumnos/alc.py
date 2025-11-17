@@ -268,7 +268,7 @@ def inversa(A):
         e_j[j] = 1
         y = res_tri(L, e_j, inferior=True)   # L y e_j
         x = res_tri(U, y, inferior=False)    # U y y
-        A_inv[:, j] = x                     # columna j de la inversa
+        A_inv[:, j] = x                      # columna j de la inversa
     
     return A_inv
 
@@ -671,7 +671,7 @@ def reducirMatrices(A, diagonal_autovalores, tol):
     for i in range(diagonal_autovalores.shape[0]):
         #if diagonal_autovalores[i][i] != 0
         if np.abs(diagonal_autovalores[i][i]) > tol: 
-            diagonal_autovalores[i][i] = sqrt(diagonal_autovalores[i][i])
+            diagonal_autovalores[i][i] = math.sqrt(diagonal_autovalores[i][i])
         else:
             epsilon_hat = diagonal_autovalores[:i, :i]
             A_hat = A[:,:i]
@@ -709,6 +709,7 @@ def cholesky(A):
     L = np.zeros((n, n))
 
     for j in range(n):
+        print('Cholesky iteracion: ', j, ' de: ', n)
         suma_diag = sum(L[j][k]**2 for k in range(j))
         L[j][j] = math.sqrt(A[j][j] - suma_diag)
 
@@ -717,31 +718,53 @@ def cholesky(A):
             L[i][j] = (A[i][j] - suma_no_diag) / L[j][j]
     return L
 
-def sustitucionParaAdelante(A, b):
-    '''Resuelve un sistema lineal haciendo sustitucion de "arriba hacia abajo"'''
-    x = np.zeros(A.shape[0])
-    x[0] = b[0]/ A[0][0] 
-    for i in range(1, A.shape[0]):
-        sumatoria = 0
-        for j in range(i):
-            sumatoria = sumatoria + A[i][j]*x[j]
-        x[i] = (b[i] - sumatoria) / A[i][i]
-    
-    return x
+def esDiagonal(A):
+    n, m = A.shape
+    if n != m:
+        return False
 
-def sustitucionParaAtras(A, b):
-    '''Resuelve un sistema lineal haciendo sustitucion de "abajo hacia arriba"'''
-    x = np.zeros(A.shape[0])
-    n = A.shape[0] -1
-    x[n] = b[n] / A[n][n]
-    
-    for i in range(n-1, -1, -1):
-        sumatoria = 0
+    for i in range(n):
         for j in range(i+1, n):
-            sumatoria += A[i][j] * x[j]
-        x[i] = (b[i] - sumatoria) / A[i][i]
+            if A[i][j] != 0 or A[j][i] != 0:
+                return False
+    return True
+
+
+def inversaDeMatrizDiagonal(A):
+    if (not esDiagonal(A)): 
+        print('La matriz no es diagonal')
+
+    for i in range (A.shape[0]):
+        A[i][i] = 1/A[i][i]
+   
+    return A
+
+
+# def sustitucionParaAdelante(A, b):
+#     '''Resuelve un sistema lineal haciendo sustitucion de "arriba hacia abajo"'''
+#     x = np.zeros(A.shape[0])
+#     x[0] = b[0]/ A[0][0] 
+#     for i in range(1, A.shape[0]):
+#         sumatoria = 0
+#         for j in range(i):
+#             sumatoria = sumatoria + A[i][j]*x[j]
+#         x[i] = (b[i] - sumatoria) / A[i][i]
     
-    return x
+#     return x
+
+# def sustitucionParaAtras(A, b):
+#     '''Resuelve un sistema lineal haciendo sustitucion de "abajo hacia arriba"'''
+#     x = np.zeros(A.shape[0])
+#     n = A.shape[0] -1
+#     x[n] = b[n] / A[n][n]
+    
+#     for i in range(n-1, -1, -1):
+#         sumatoria = 0
+#         for j in range(i+1, n):
+#             sumatoria += A[i][j] * x[j]
+#         x[i] = (b[i] - sumatoria) / A[i][i]
+    
+#     return x
 
 
 def deVectorAMatrizInversa(VecEpsilon):
@@ -753,7 +776,21 @@ def deVectorAMatrizInversa(VecEpsilon):
     
     return matrizEpsilon
 
+def calcularWconQR(Q, R, Y):
+    # Tengo que resolver V @ R^T = X (Con V = pseudo-inversa de X)
+    # Para usar res_tri tengo que resolver a derecha asi que aplico traspuesta a ambos lados y resuelvo R @ V^T = Q^T
+    n = R.shape[0]
+    p = Q.shape[0]
+    Q_t = traspuesta(Q)
+    V_t = np.zeros((n, p))
 
+    # Calculo V^T
+    for i in range(p):
+        V_t[:, i] = res_tri(R, Q_t[:, i], False)
+    
+    # Obtengo W
+    W = multi_matricial(Y, traspuesta(V_t))
+    return W
 
 
 
