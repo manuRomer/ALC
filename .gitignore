@@ -12,6 +12,7 @@ venv/
 .env/
 .envs/
 .venv/
+numba_env/
 
 # Archivos de configuración de PyCharm
 .idea/
