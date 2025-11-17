@@ -86,7 +86,6 @@ def trans_afin(v, theta, s, b):
     wh = multi_matricial(afin(theta, s, b), traspuesta(vh))       # aplicar transformación
     return wh[:2]                       # volver a R2
 
-
 ## Laboratorio 3
 
 def norma(x, p):
@@ -120,7 +119,7 @@ def multi_matricial(A, B):
     if A.ndim == 1 and B.ndim == 1:
         if A.shape[0] != B.shape[0]:
             raise ValueError("Los vectores no tienen la misma longitud")
-        return producto_interno(A, B)
+        return np.sum(A[i]*B[i] for i in range(A.shape[0]))
 
     # Si A es vector 1D → tratarlo como fila (1 x n)
     if A.ndim == 1:
@@ -319,14 +318,14 @@ def calculaLDV(A):
     superior. En caso de que la matriz no pueda factorizarse
     retorna None.
     """
-    L, U, nops1 = calculaLU_optimizado(A) 
+    L, U, nops1 = calculaLU(A)
     if (L is None): return None, None, None, 0
     Ut = traspuesta(U)
-    V, D , nops2= calculaLU_optimizado(Ut) 
+    V, D , nops2= calculaLU(Ut)
 
     return L, D, traspuesta(V) , nops1 + nops2
 
-def esSDP(A, atol=1e-15):
+def esSDP(A, atol=1e-8):
     """
     Checkea si la matriz A es simetrica definida positiva (SDP) usando
     la factorizacion LDV.
@@ -445,7 +444,7 @@ def calculaQR(A, metodo='RH', tol=1e-12):
 def f_A(A, v, k):
     w = v
     for i in range (k):
-        w = (A @ w)
+        w = multi_matricial(A, traspuesta(w))
         norma_2 = norma(w, 2)
         if (norma_2 <= 0): return np.zeros(v.shape[0]) 
         w = w/norma_2
@@ -461,14 +460,14 @@ def metpot2k(A, tol=1e-15, K=1000):
     """
     v = np.random.rand(A.shape[0])
     v_prima = f_A(A, v, 2)
-    e = (v_prima @ traspuesta(v))
+    e = multi_matricial(v_prima, traspuesta(v))
     k = 0
     while (abs(e-1)>tol and k < K):
         v = v_prima
         v_prima = f_A(A, v, 1)
-        e = (v_prima @ traspuesta(v))
+        e = multi_matricial(v_prima, traspuesta(v))
         k += 1
-    autovalor = (v_prima @ (A @ traspuesta(v_prima)))
+    autovalor = multi_matricial(v_prima, multi_matricial(A, traspuesta(v_prima)))
     e -= 1
     return v, autovalor, k
 
@@ -495,7 +494,6 @@ def diagRH(A,tol=1e-15,K=1000):
     else:
         w = w / nw
         H_v1 = np.eye(n) - 2.0 * multi_matricial(traspuesta(w), w)
-        w = w.reshape(-1, 1)   
 
     if (n == 1):
         S = H_v1
@@ -657,10 +655,10 @@ def retenerValoresSingulares(U, vector_epsilon, V, k):
     return U_k, eps_k, V_k
 
 def calculoSVDReducida(A, tol):
-    A_t_A = traspuesta(A) @ A
+    A_t_A = multi_matricial(traspuesta(A), A)
     
     V, diagonal_autovalores = diagRH(A_t_A)
-
+    
     epsilon_hat, V_hat = reducirMatrices(V, diagonal_autovalores, tol)
     
     U_hat = calcularMatriz(A, V_hat, epsilon_hat)
@@ -692,7 +690,7 @@ def matriz_diagonal_a_vector(diagonal_autovalores):
 
 def calcularMatriz(A,B,diagonal_autovalores):
     """Devuelve la matriz faltante para SVD"""
-    matriz_faltante = A @ B
+    matriz_faltante = multi_matricial(A, B) 
     for j in range(matriz_faltante.shape[1]):
         for i in range(matriz_faltante.shape[0]):
             matriz_faltante[i][j] = matriz_faltante[i][j] / diagonal_autovalores[j][j]
