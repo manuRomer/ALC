@@ -1,5 +1,5 @@
 import numpy as np
-from modulo_ALC import *
+from alc import *
 from math import sqrt
 
 ## Tests Labo 01
@@ -151,7 +151,7 @@ assert(np.allclose(normaA*normaA_,condA))
 
 print('Pasó labo 3')
 
-## Tests Labo 04
+# Tests Labo 04
 
 # Tests LU
 
@@ -314,6 +314,8 @@ check_QR(Q4c,R4c,A4)
 print('Pasó labo 5')
 
 ## Tests labo 6
+
+print('Comienza el test del labo 6, paciencia, tarda como 5 minutos')
 
 # Tests metpot2k
 

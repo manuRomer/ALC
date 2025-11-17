@@ -1,24 +1,18 @@
 from alc import *
 import numpy as np
 import os
-from scipy.linalg import solve_triangular
+import time
 
 carpetaGatosYPerros = '/home/manu/Escritorio/Talleres ALC/Trabajo Practico/Recursos TP-20251111/template-alumnos/template-alumnos/dataset/cats_and_dogs'
-# Ejercicio 1
-#aca meti un poco de ChatGPT porque no sabia muy bien como cargar los datos
-#como no podemos testearlo, no se que onda esta implementacion
-def cargarDataset(carpeta):
-    #root = "template-alumnos/template-alumnos/dataset/cats_and_dogs"
-    #Xt, Yt, Xv, Yv = cargarDataset(root)
 
-    # Armo la ruta completa a la carpeta de cats_and_dogs
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    carpetaGatosYPerros = os.path.join(base_dir, carpeta)
+# Ejercicio 1
+def cargarDataset(carpeta):
+    # El input carpeta debe ser la ruta completa a la carpeta cats_and_dogs
     # carpetas
-    train_cats = os.path.join(carpetaGatosYPerros, "train", "cats", "efficientnet_b3_embeddings.npy")
-    train_dogs = os.path.join(carpetaGatosYPerros, "train", "dogs", "efficientnet_b3_embeddings.npy")
-    val_cats   = os.path.join(carpetaGatosYPerros, "val", "cats", "efficientnet_b3_embeddings.npy")
-    val_dogs   = os.path.join(carpetaGatosYPerros, "val", "dogs", "efficientnet_b3_embeddings.npy")
+    train_cats = os.path.join(carpeta, "train", "cats", "efficientnet_b3_embeddings.npy")
+    train_dogs = os.path.join(carpeta, "train", "dogs", "efficientnet_b3_embeddings.npy")
+    val_cats   = os.path.join(carpeta, "val", "cats", "efficientnet_b3_embeddings.npy")
+    val_dogs   = os.path.join(carpeta, "val", "dogs", "efficientnet_b3_embeddings.npy")
 
     Xtc = np.load(train_cats)   # gatos train
     Xtd = np.load(train_dogs)   # perros train
@@ -75,11 +69,11 @@ def pinvEcuacionesNormales(X,L,Y):
         
         # Paso intermedio. Sustitucion hacia adelante: L @ Z = X^T
         for i in range(n):
-            Z[:, i] = solve_triangular(L, X_t[:, i], True)
+            Z[:, i] = res_tri_optimizado(L, X_t[:, i], True)
             
         # Resuelvo el sistema. Sustitución hacia atrás: L^T @ U = Z
         for i in range(n):
-            U[:, i] = solve_triangular(L_t, Z[:, i], False)
+            U[:, i] = res_tri_optimizado(L_t, Z[:, i], False)
 
         # Calculo W
         W = Y@U
@@ -94,11 +88,11 @@ def pinvEcuacionesNormales(X,L,Y):
 
         # Paso intermedio. Sustitucion hacia adelante: L @ Z = X
         for i in range(p):
-            Z[:, i] = solve_triangular(L, X[:, i], True)
+            Z[:, i] = res_tri_optimizado(L, X[:, i], True)
             
         # Resuelvo el sistema. Sustitución hacia atrás: L^T @ V^T = Z
         for i in range(p):
-            Vt[:, i] = solve_triangular(L_t, Z[:, i], False)
+            Vt[:, i] = res_tri_optimizado(L_t, Z[:, i], False)
         
         V = traspuesta(Vt)
         
@@ -107,7 +101,6 @@ def pinvEcuacionesNormales(X,L,Y):
     else:
         # Como la pseudoinversa X^+ = X^-1 entonces W = Y @ X^-1
         W = Y @ inversa(X)
-            
     return W
 
 # Ejercicio 3
@@ -156,25 +149,28 @@ def esPseudoInversa(X, pX, tol = 1e-8):
 
 # Ejercicio 6 
 def evaluacion():
+    # Tarda aprox 2 minutos en calcular la 2 W
+
     Xt, Yt, Xv, Yv = cargarDataset(carpetaGatosYPerros)
 
     # En el contexto del TP n < p, entonces para el algoritmo 1 aplicamos Cholesky sobre X @ X^T
-    L = cholesky(Xt @ traspuesta(Xt))
+    L = cholesky_optimizado(Xt @ traspuesta(Xt))
+    
     WEN = pinvEcuacionesNormales(Xt, L , Yt)
-    print('Termino WEN')
+    print('Terminó WEN')
 
-    U, s_vector, V = svd_reducida(Xt)
+    U, s_vector, V = svd_reducida_optimizado(Xt)
     S = np.diag(s_vector)
     WSVD = pinvSVD(U, S, V, Yt)
-    print('Termino WSVD')
+    print('Terminó WSVD')
 
-    QHH, RHH = QR_con_HH(traspuesta(Xt))
+    QHH, RHH = QR_con_HH_optimizado(traspuesta(Xt))
     WQRHH = pinvHouseHolder(QHH, RHH, Yt)
-    print('Termino WQRHH')
+    print('Terminó WQRHH')
     
-    QGS, RGS = QR_con_GS(traspuesta(Xt))
+    QGS, RGS = QR_con_GS_optimizado(traspuesta(Xt))
     WQRGS = pinvGramSchmidt(QGS, RGS, Yt)
-    print('Termino WQRGS')
+    print('Terminó WQRGS')
     
 
 evaluacion()
