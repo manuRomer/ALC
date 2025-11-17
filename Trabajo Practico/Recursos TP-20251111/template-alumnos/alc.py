@@ -1,5 +1,8 @@
 import numpy as np
 import math
+from scipy.linalg import solve_triangular
+from scipy.linalg import lu
+from scipy.linalg import eigh
 
 ## Laboratorio 1
 tol = 1e-15
@@ -276,12 +279,13 @@ def traspuesta(A):
     if (A.ndim == 1):
         return A.reshape(-1, 1)
 
-    n = A.shape[0]
-    m = A.shape[1]
-    At = np.zeros((m, n))
-    for i in range (n):
-        for j in range (m):
-            At[j][i] = A[i][j]
+    n, m = A.shape
+    At = np.empty((m, n))
+
+    for i in range(n):
+        row = A[i]
+        for j in range(m):
+            At[j, i] = row[j]
     return At
 
 def vector_traspuesto(v):
@@ -312,14 +316,14 @@ def calculaLDV(A):
     superior. En caso de que la matriz no pueda factorizarse
     retorna None.
     """
-    L, U, nops1 = calculaLU(A)
+    L, U, nops1 = lu(A) # No usamos nuestra implementacion calcularLU por performance. Deberia decir calcularLU(A)  
     if (L is None): return None, None, None, 0
     Ut = traspuesta(U)
-    V, D , nops2= calculaLU(Ut)
+    V, D , nops2= lu(Ut) # No usamos nuestra implementacion calcularLU por performance. Deberia decir calcularLU(A)  
 
     return L, D, traspuesta(V) , nops1 + nops2
 
-def esSDP(A, atol=1e-8):
+def esSDP(A, atol=1e-15):
     """
     Checkea si la matriz A es simetrica definida positiva (SDP) usando
     la factorizacion LDV.
@@ -350,7 +354,7 @@ def QR_con_GS(A, tol=1e-12, retorna_nops=False):
     Si la matriz A no es de nxn, debe retornar None
     """
     nops = 0
-    n = A.shape[1]
+    m, n = A.shape
     a_1 = A[:, 0]
     r_11 = norma(a_1, 2)
     nops += a_1.shape[0]*2 -1     # operaciones de la norma
@@ -358,7 +362,7 @@ def QR_con_GS(A, tol=1e-12, retorna_nops=False):
     q_1 = a_1 / r_11
     nops += 1
     
-    Q = np.zeros((n, n))
+    Q = np.zeros((m, n))
     R = np.zeros((n, n))
     Q[:, 0] = q_1
     R[0][0] = r_11
@@ -384,6 +388,22 @@ def QR_con_GS(A, tol=1e-12, retorna_nops=False):
         Q[:, j] = q_j
         R[j][j] = r_jj
 
+    for j in range(1, n):
+        q_j_prima = A[:, j].copy() 
+        
+        R_col_j = Q[:, :j].T @ q_j_prima 
+        proyeccion = Q[:, :j] @ R_col_j 
+        q_j_prima = q_j_prima - proyeccion
+        R[:j, j] = R_col_j 
+        
+        r_jj = norma(q_j_prima, 2)
+        
+        q_j = q_j_prima / r_jj
+        
+        Q[:, j] = q_j
+        R[j, j] = r_jj
+    
+
     if (retorna_nops):
         return Q, R, nops
     return Q, R
@@ -408,13 +428,20 @@ def QR_con_HH(A, tol=1e-12, retorna_nops=False):
         e1[0] = 1
         u = x- alpha * e1
         normaU = norma(u, 2)
-        if (normaU > tol):
-            u = u / normaU
-            Hk = np.eye(x.shape[0]) - 2*multi_matricial(traspuesta(u), u)
-            Hk_prima = np.eye(m)
-            Hk_prima[k:, k:] = Hk
-            R = multi_matricial(Hk_prima, R)
-            Q = multi_matricial(Q, traspuesta(Hk_prima))
+        if normaU > tol:
+            u /= normaU
+
+            # actualizo R
+            uR = u @ R[k:, k:]
+            u = u.reshape(-1, 1)   
+            uR = uR.reshape(1, -1)
+            R[k:, k:] -= 2.0 * (u @ uR)
+
+            # actualizo Q
+            Qu = Q[:, k:] @ u
+            Qu = Qu.reshape(-1, 1)   
+            u = u.reshape(1, -1)
+            Q[:, k:] -= 2.0 * (Qu @ u)
     
     return Q, R
 
@@ -438,7 +465,7 @@ def calculaQR(A, metodo='RH', tol=1e-12):
 def f_A(A, v, k):
     w = v
     for i in range (k):
-        w = multi_matricial(A, traspuesta(w))
+        w = (A @ w)
         norma_2 = norma(w, 2)
         if (norma_2 <= 0): return np.zeros(v.shape[0]) 
         w = w/norma_2
@@ -454,14 +481,14 @@ def metpot2k(A, tol=1e-15, K=1000):
     """
     v = np.random.rand(A.shape[0])
     v_prima = f_A(A, v, 2)
-    e = multi_matricial(v_prima, traspuesta(v))
+    e = (v_prima @ traspuesta(v))
     k = 0
     while (abs(e-1)>tol and k < K):
         v = v_prima
         v_prima = f_A(A, v, 1)
-        e = multi_matricial(v_prima, traspuesta(v))
+        e = (v_prima @ traspuesta(v))
         k += 1
-    autovalor = multi_matricial(v_prima, multi_matricial(A, traspuesta(v_prima)))
+    autovalor = (v_prima @ (A @ traspuesta(v_prima)))
     e -= 1
     return v, autovalor, k
 
@@ -475,6 +502,7 @@ def diagRH(A,tol=1e-15,K=1000):
     Si la matriz A no es simetrica, debe retornar None
     """
     n = A.shape[0]
+    if n%10 == 0: print('Tamaño a en diagRH: ', A.shape)
     v1, lambda1, k = metpot2k(A, tol, K)
     e1 = np.zeros(v1.shape[0])
     e1[0] = 1
@@ -487,15 +515,15 @@ def diagRH(A,tol=1e-15,K=1000):
         H_v1 = np.eye(n)
     else:
         w = w / nw
-        H_v1 = np.eye(n) - 2.0 * multi_matricial(traspuesta(w), w)
+        H_v1 = np.eye(n) - 2.0 *  w @ traspuesta(w)
 
     if (n == 1):
         S = H_v1
-        D = multi_matricial(H_v1, multi_matricial(A, traspuesta(H_v1)))
+        D = H_v1 @ (A @ traspuesta(H_v1))
         return S, D
     
     else:
-        B = multi_matricial(H_v1, multi_matricial(A, traspuesta(H_v1)))
+        B = H_v1 @ (A @ traspuesta(H_v1))
         A_prima = B[1:,1:]
         S_prima, D_prima = diagRH(A_prima, tol, K)
         D = np.zeros((n, n))
@@ -503,7 +531,7 @@ def diagRH(A,tol=1e-15,K=1000):
         D[1:,1:] = D_prima
         S = np.eye(n)
         S[1:,1:] = S_prima
-        S = multi_matricial(H_v1, S)
+        S = H_v1 @ S
         return S, D
 
 ## Laboratorio 7
@@ -571,20 +599,12 @@ def nucleo(A,tol=1e-15):
     base_nucleo = S[:, indices_nucleo]
     return base_nucleo
 
-def crea_rala(listado,m_filas,n_columnas,tol=1e-15):
+def crea_rala(listado, m_filas, n_columnas, tol=1e-15):
     """
     Recibe una lista listado, con tres elementos: lista con indices i, lista con indices j, y lista con valores A_ij de la matriz A. Tambien las dimensiones de la matriz a traves de m_filas y n_columnas. Los elementos menores a tol se descartan.
     Idealmente, el listado debe incluir unicamente posiciones correspondientes a valores distintos de cero. Retorna una lista con:
     - Diccionario {(i,j):A_ij} que representa los elementos no nulos de la matriz A. Los elementos con modulo menor a tol deben descartarse por default. 
     - Tupla (m_filas,n_columnas) que permita conocer las dimensiones de la matriz.
-    """
-    import numpy as np # Necesario para np.abs()
-
-def crea_rala(listado, m_filas, n_columnas, tol=1e-15):
-    """
-    Recibe una lista listado, con tres elementos: lista con indices i, 
-    lista con indices j, y lista con valores A_ij de la matriz A. 
-    ...
     """
     dimensiones = (m_filas, n_columnas)
 
@@ -657,10 +677,14 @@ def retenerValoresSingulares(U, vector_epsilon, V, k):
     return U_k, eps_k, V_k
 
 def calculoSVDReducida(A, tol):
-    A_t_A = multi_matricial(traspuesta(A), A)
+    A_t_A = traspuesta(A) @ A
     
-    V, diagonal_autovalores = diagRH(A_t_A)
+    # Linea original nuestra tarda un googol de años en ejecutar y eso qsi no tira overflow de algo
+    # V, diagonal_autovalores = diagRH(A_t_A)
     
+    w, V = eigh(A_t_A)
+    diagonal_autovalores = np.diag(w)
+
     epsilon_hat, V_hat = reducirMatrices(V, diagonal_autovalores, tol)
     
     U_hat = calcularMatriz(A, V_hat, epsilon_hat)
@@ -692,12 +716,11 @@ def matriz_diagonal_a_vector(diagonal_autovalores):
 
 def calcularMatriz(A,B,diagonal_autovalores):
     """Devuelve la matriz faltante para SVD"""
-    matriz_faltante = multi_matricial(A, B) 
+    matriz_faltante = A @ B
     for j in range(matriz_faltante.shape[1]):
         for i in range(matriz_faltante.shape[0]):
             matriz_faltante[i][j] = matriz_faltante[i][j] / diagonal_autovalores[j][j]
     return matriz_faltante
-
 
 ## Funciones necesarias para el Trabajo Practico
 
@@ -708,14 +731,18 @@ def cholesky(A):
     n = A.shape[0]
     L = np.zeros((n, n))
 
+    atol=1e-8
+    suma_diag = sum(L[j][k]**2 for k in range(j))
+    
     for j in range(n):
-        print('Cholesky iteracion: ', j, ' de: ', n)
-        suma_diag = sum(L[j][k]**2 for k in range(j))
-        L[j][j] = math.sqrt(A[j][j] - suma_diag)
-
-        for i in range(j+1, n):
-            suma_no_diag = sum(L[i][k] * L[j][k] for k in range(j))
-            L[i][j] = (A[i][j] - suma_no_diag) / L[j][j]
+        vector_L_j = L[j, :j] 
+        suma_diag = vector_L_j @ vector_L_j
+        valor_raiz = A[j, j] - suma_diag
+        L[j, j] = math.sqrt(valor_raiz)
+        for i in range(j + 1, n):
+            vector_L_i = L[i, :j]
+            suma_no_diag = vector_L_i @ vector_L_j
+            L[i, j] = (A[i, j] - suma_no_diag) / L[j, j]
     return L
 
 def esDiagonal(A):
@@ -729,7 +756,6 @@ def esDiagonal(A):
                 return False
     return True
 
-
 def inversaDeMatrizDiagonal(A):
     if (not esDiagonal(A)): 
         print('La matriz no es diagonal')
@@ -738,34 +764,6 @@ def inversaDeMatrizDiagonal(A):
         A[i][i] = 1/A[i][i]
    
     return A
-
-
-# def sustitucionParaAdelante(A, b):
-#     '''Resuelve un sistema lineal haciendo sustitucion de "arriba hacia abajo"'''
-#     x = np.zeros(A.shape[0])
-#     x[0] = b[0]/ A[0][0] 
-#     for i in range(1, A.shape[0]):
-#         sumatoria = 0
-#         for j in range(i):
-#             sumatoria = sumatoria + A[i][j]*x[j]
-#         x[i] = (b[i] - sumatoria) / A[i][i]
-    
-#     return x
-
-# def sustitucionParaAtras(A, b):
-#     '''Resuelve un sistema lineal haciendo sustitucion de "abajo hacia arriba"'''
-#     x = np.zeros(A.shape[0])
-#     n = A.shape[0] -1
-#     x[n] = b[n] / A[n][n]
-    
-#     for i in range(n-1, -1, -1):
-#         sumatoria = 0
-#         for j in range(i+1, n):
-#             sumatoria += A[i][j] * x[j]
-#         x[i] = (b[i] - sumatoria) / A[i][i]
-    
-#     return x
-
 
 def deVectorAMatrizInversa(VecEpsilon):
     '''dado un vector que representa una matriz diagonal, convierte el vector en matriz y calcula su inversa'''
@@ -786,10 +784,10 @@ def calcularWconQR(Q, R, Y):
 
     # Calculo V^T
     for i in range(p):
-        V_t[:, i] = res_tri(R, Q_t[:, i], False)
+        V_t[:, i] = solve_triangular(R, Q_t[:, i], False)
     
     # Obtengo W
-    W = multi_matricial(Y, traspuesta(V_t))
+    W = Y @ traspuesta(V_t)
     return W
 
 

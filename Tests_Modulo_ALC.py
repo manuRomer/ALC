@@ -663,3 +663,6 @@ for k in [1,3,5]:
     assert hU.shape[1] == k, 'Dimensiones de hU incorrectas (caso a)'
     assert hV.shape[1] == k, 'Dimensiones de hV incorrectas(caso a)'
     assert len(hS) == k, 'Tamaño de hS incorrecto'
+
+
+print('Pasó labo 8')

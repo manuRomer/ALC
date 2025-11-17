@@ -1,6 +1,7 @@
 from alc import *
 import numpy as np
 import os
+from scipy.linalg import solve_triangular
 
 carpetaGatosYPerros = '/home/manu/Escritorio/Talleres ALC/Trabajo Practico/Recursos TP-20251111/template-alumnos/template-alumnos/dataset/cats_and_dogs'
 # Ejercicio 1
@@ -24,8 +25,8 @@ def cargarDataset(carpeta):
     Xvc = np.load(val_cats)     # gatos val
     Xvd = np.load(val_dogs)     # perros val
 
-    Xt = traspuesta(np.concatenate([Xtc, Xtd], axis=0))
-    Xv = traspuesta(np.concatenate([Xvc, Xvd], axis=0))
+    Xt = traspuesta(np.concatenate([Xtc, Xtd], axis=1))
+    Xv = traspuesta(np.concatenate([Xvc, Xvd], axis=1))
 
     Nc_train = Xtc.shape[0]   
     Nd_train = Xtd.shape[0]  
@@ -41,7 +42,7 @@ def cargarDataset(carpeta):
         Yt_dogs[0, i] = 0
         Yt_dogs[1, i] = 1
 
-    Yt = np.concatenate([Yt_cats, Yt_dogs], axis=1)
+    Yt = np.concatenate([Yt_cats, Yt_dogs], axis=0)
 
     Nc_val = Xvc.shape[0]  
     Nd_val = Xvd.shape[0]  
@@ -57,7 +58,7 @@ def cargarDataset(carpeta):
         Yv_dogs[0, i] = 0
         Yv_dogs[1, i] = 1
 
-    Yv = np.concatenate([Yv_cats, Yv_dogs], axis=1)
+    Yv = np.concatenate([Yv_cats, Yv_dogs], axis=0)
 
     return Xt, Yt, Xv, Yv
 
@@ -74,14 +75,14 @@ def pinvEcuacionesNormales(X,L,Y):
         
         # Paso intermedio. Sustitucion hacia adelante: L @ Z = X^T
         for i in range(n):
-            Z[:, i] = res_tri(L, X_t[:, i], True)
+            Z[:, i] = solve_triangular(L, X_t[:, i], True)
             
         # Resuelvo el sistema. Sustitución hacia atrás: L^T @ U = Z
         for i in range(n):
-            U[:, i] = res_tri(L_t, Z[:, i], False)
+            U[:, i] = solve_triangular(L_t, Z[:, i], False)
 
         # Calculo W
-        W = multi_matricial(Y, U)
+        W = Y@U
     
     elif n < p:
         # Asumo que L = cholesky(X @ X^T)
@@ -93,19 +94,19 @@ def pinvEcuacionesNormales(X,L,Y):
 
         # Paso intermedio. Sustitucion hacia adelante: L @ Z = X
         for i in range(p):
-            Z[:, i] = res_tri(L, X[:, i], True)
+            Z[:, i] = solve_triangular(L, X[:, i], True)
             
         # Resuelvo el sistema. Sustitución hacia atrás: L^T @ V^T = Z
         for i in range(p):
-            Vt[:, i] = res_tri(L_t, Z[:, i], False)
+            Vt[:, i] = solve_triangular(L_t, Z[:, i], False)
         
         V = traspuesta(Vt)
         
-        W = multi_matricial(Y, V)
+        W = Y@V
         
     else:
         # Como la pseudoinversa X^+ = X^-1 entonces W = Y @ X^-1
-        W = multi_matricial(Y, inversa(X))
+        W = Y @ inversa(X)
             
     return W
 
@@ -119,9 +120,9 @@ def pinvSVD(U, S, V, Y):
     # Calculamos la pseudo-inversa de X
     V_1 = V[:,:n]
     U_1 = U[:,:n]
-    pseudoInversa = multi_matricial(multi_matricial(V_1, S_1), traspuesta(U_1))
+    pseudoInversa = (V_1 @ S_1) @ traspuesta(U_1)
     
-    W = multi_matricial(Y, pseudoInversa)
+    W = Y @ pseudoInversa
 
     return W
 
@@ -135,18 +136,18 @@ def pinvGramSchmidt(Q,R,Y):
 # Ejercicio 5
 def esPseudoInversa(X, pX, tol = 1e-8):
     #La pseudo inversa es la unica matriz que cumple los 4 puntos mencionados en el tp (al final de la pagina 3)
-    # 1) X @ pX @ X = X
-    if not matricesIguales(multi_matricial(X, multi_matricial(pX, X)), X, tol):
+    # 1) X pX X = X
+    if not matricesIguales((X @ (pX@ X)), X, tol):
         return False
     # 2) pX X pX = pX
-    if not matricesIguales(multi_matricial(pX, multi_matricial(X, pX)), pX, tol):
+    if not matricesIguales((pX @ (X @ pX)), pX, tol):
         return False
     # 3) (X pX)^T = X pX
-    XpX = multi_matricial(X, pX)
+    XpX = X @ pX
     if not matricesIguales(traspuesta(XpX), XpX, tol):
         return False
     # 4) (pX X)^T = pX X
-    pXX = multi_matricial(pX, X)
+    pXX = pX @ X
     if not matricesIguales(traspuesta(pXX), pXX, tol):
         return False
     return True
@@ -155,12 +156,13 @@ def esPseudoInversa(X, pX, tol = 1e-8):
 def evaluacion():
     Xt, Yt, Xv, Yv = cargarDataset(carpetaGatosYPerros)
 
-    # En el contexto del TP, n < p entonces para el algoritmo 1 aplicamos Cholesky sobre X @ X^T
-    L = cholesky(multi_matricial(Xt, traspuesta(Xt)))
+    # En el contexto del TP n > p, entonces para el algoritmo 1 aplicamos Cholesky sobre X^T @ X
+    L = cholesky(traspuesta(Xt) @ Xt)
     WEN = pinvEcuacionesNormales(Xt, L , Yt)
     print('Termino WEN')
-    
-    U, S, V = svd_reducida(Xt)
+
+    U, s_vector, V = svd_reducida(Xt)
+    S = np.diag(s_vector)
     WSVD = pinvSVD(U, S, V, Yt)
     print('Termino WSVD')
 
